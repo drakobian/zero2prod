@@ -1,6 +1,7 @@
 use actix_web::{web, HttpResponse};
 use chrono::Utc;
 use sqlx::PgPool;
+use tracing::Instrument;
 use uuid::Uuid;
 
 #[allow(dead_code)]
@@ -31,13 +32,8 @@ pub async fn subscribe(form: web::Form<FormData>, pool: web::Data<PgPool>) -> Ht
         Utc::now()
     );
 
-    tracing::info!(
-        "request_id {} - Adding '{}' '{}' as a new subscriber.",
-        request_id,
-        form.email,
-        form.name
-    );
-    match query.execute(pool.get_ref()).await {
+    let query_span = tracing::info_span!("Saving new subscriber");
+    match query.execute(pool.get_ref()).instrument(query_span).await {
         Ok(_) => {
             tracing::info!("request_id {} - Saved new subscriber", request_id);
             HttpResponse::Ok().finish()
